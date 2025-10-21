@@ -41,6 +41,10 @@ var IDE = new function() {
         aboutDialog:         _el("about-dialog"),
         methodsDialog:       _el("methods-dialog"),
         helpMeWriteDialog:   _el("help-write-dialog"),
+        tokenDisplay:        _el("token-display"),
+        tokenInput:          _el("token-input"),
+        promptTextarea:      _el("prompt-textarea"),
+        submitPromptBtn:     _el("submit-prompt-btn"),
         toolbar:             _el("toolbar"),
         tbConsoleShow:       _el("toolbar-button-console-show"),
         tbConsoleHide:       _el("toolbar-button-console-hide"),
@@ -153,6 +157,16 @@ var IDE = new function() {
                 }
               }
             }
+            
+            // Check for origin trial token and apply it
+            var sOriginTrialToken = localStorage.getItem("@@_originTrialToken");
+            if (sOriginTrialToken && sOriginTrialToken !== "") {
+                var trialTokenElement = document.createElement('meta');
+                trialTokenElement.httpEquiv = 'origin-trial';
+                trialTokenElement.content = sOriginTrialToken;
+                document.head.appendChild(trialTokenElement);
+            }
+            
             _e.ideTheme.href = "codemirror/themes/" + theme + ".css";
             GitHelp.navhome();
         }
@@ -960,6 +974,19 @@ var IDE = new function() {
         console.log("Current editor content:");
         console.log(currentCode);
         
+        // Check for existing origin trial token
+        var existingToken = localStorage.getItem("@@_originTrialToken");
+        if (existingToken && existingToken !== "") {
+            // Show existing token
+            _e.tokenDisplay.style.display = "block";
+            _e.tokenInput.style.display = "none";
+        } else {
+            // Show input for new token
+            _e.tokenDisplay.style.display = "none";
+            _e.tokenInput.style.display = "block";
+            _el("origin-trial-token-input").value = "";
+        }
+        
         _showDialog(_e.helpMeWriteDialog);
     }
 
@@ -1610,6 +1637,73 @@ var IDE = new function() {
         }
     }
 
+    function _saveOriginTrialToken() {
+        var tokenInput = _el("origin-trial-token-input");
+        var token = tokenInput.value.trim();
+        
+        if (token === "") {
+            alert("Please enter a valid origin trial token.");
+            return;
+        }
+        
+        // Save to localStorage
+        localStorage.setItem("@@_originTrialToken", token);
+        
+        // Create and append meta element to document head
+        var trialTokenElement = document.createElement('meta');
+        trialTokenElement.httpEquiv = 'origin-trial';
+        trialTokenElement.content = token;
+        document.head.appendChild(trialTokenElement);
+        
+        // Update dialog to show the token was saved
+        _helpMeWriteCode();
+    }
+
+    function _clearOriginTrialToken() {
+        // Remove from localStorage
+        localStorage.removeItem("@@_originTrialToken");
+        
+        // Remove meta element from document head
+        var existingMeta = document.querySelector('meta[http-equiv="origin-trial"]');
+        if (existingMeta) {
+            existingMeta.remove();
+        }
+        
+        // Update dialog to show input form
+        _helpMeWriteCode();
+    }
+
+    function _submitPrompt() {
+        var promptText = _e.promptTextarea.value.trim();
+        
+        if (promptText === "") {
+            alert("Please enter a prompt.");
+            return;
+        }
+        
+        // Disable textarea and button
+        _e.promptTextarea.disabled = true;
+        _e.submitPromptBtn.disabled = true;
+        _e.submitPromptBtn.textContent = "Processing...";
+        
+        // After 2 seconds, append comment to editor and re-enable controls
+        setTimeout(function() {
+            var currentCode = codeTabMap[activeCodeTab].editor.getValue();
+            var comment = "\n' " + promptText + "\n";
+            codeTabMap[activeCodeTab].editor.setValue(currentCode + comment);
+            
+            // Re-enable controls
+            _e.promptTextarea.disabled = false;
+            _e.submitPromptBtn.disabled = false;
+            _e.submitPromptBtn.textContent = "Submit Prompt";
+            _e.promptTextarea.value = "";
+            
+            // Close dialog and focus editor
+            _closeDialog();
+            codeTabMap[activeCodeTab].editor.focus();
+        }, 2000);
+    }
+
     this.mode = function() { return appMode; }
     this.getErrorLine = _getErrorLine;
     this.runProgram = _runProgram;
@@ -1647,5 +1741,7 @@ var IDE = new function() {
     this.changeKeyMap = _changeKeyMap;
     this.toggleConsolePersistence = _toggleConsolePersistence;
     this.helpMeWriteCode = _helpMeWriteCode;
-
+    this.saveOriginTrialToken = _saveOriginTrialToken;
+    this.clearOriginTrialToken = _clearOriginTrialToken;
+    this.submitPrompt = _submitPrompt;
 };
