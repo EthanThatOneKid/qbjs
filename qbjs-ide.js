@@ -40,6 +40,7 @@ var IDE = new function() {
         optionsDialog:       _el("options-dialog"),
         aboutDialog:         _el("about-dialog"),
         methodsDialog:       _el("methods-dialog"),
+        helpMeWriteDialog:   _el("help-write-dialog"),
         toolbar:             _el("toolbar"),
         tbConsoleShow:       _el("toolbar-button-console-show"),
         tbConsoleHide:       _el("toolbar-button-console-hide"),
@@ -793,6 +794,7 @@ var IDE = new function() {
         _e.optionsDialog.close();
         _e.aboutDialog.close();
         _e.methodsDialog.close();
+        _e.helpMeWriteDialog.close();
     }
 
     async function displayWarnings() {
@@ -950,6 +952,15 @@ var IDE = new function() {
         consoleVisible = false;
         _showConsole();
         _closeDialog();
+    }
+
+    
+    function _helpMeWriteCode() {
+        var currentCode = codeTabMap[activeCodeTab].editor.getValue();
+        console.log("Current editor content:");
+        console.log(currentCode);
+        
+        _showDialog(_e.helpMeWriteDialog);
     }
 
     function displayTypes() {
@@ -1635,4 +1646,6 @@ var IDE = new function() {
     this.convertUTFTo437 = _convertUTFTo437;
     this.changeKeyMap = _changeKeyMap;
     this.toggleConsolePersistence = _toggleConsolePersistence;
+    this.helpMeWriteCode = _helpMeWriteCode;
+
 };

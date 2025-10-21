@@ -60,6 +60,9 @@
             <a href="javascript:IDE.showConsole()" class="toolbar-button" id="toolbar-button-console-hide" title="Hide Console" style="display:none"></a>
             <a href="javascript:IDE.slideRight()" class="toolbar-button" id="toolbar-button-slide-right" title="Slide View Right"></a>
             <a href="javascript:IDE.slideLeft()" class="toolbar-button" id="toolbar-button-slide-left" title="Slide View Left"></a>
+
+            <div class="spacer"></div>
+            <a href="javascript:IDE.helpMeWriteCode()" class="toolbar-button" id="toolbar-button-help-me-write-code" title="Help Me Write Code">✨</a>
         </div>
         <div id="code-container">
             <div id="code-tabs" class="tabs">
@@ -209,6 +212,16 @@
                 <p>Copyright (c) 2022-2025 boxgaming</p>
                 <div>
                     <a href="javascript:IDE.closeDialog()" style="display:block; float:right">Close</a>
+                </div>
+            </div>
+        </dialog>
+
+        <dialog id="help-write-dialog">
+            <div>
+                <h3>✨ Help Me Write Code</h3>
+                <p>Current editor content has been logged to the console.</p>
+                <div>
+                    <a href="javascript:IDE.closeDialog()" style="display:block; float:right; margin-top: 7px">Close</a>
                 </div>
             </div>
         </dialog>
