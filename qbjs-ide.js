@@ -2,6 +2,8 @@ var IDE = new function() {
     const MAIN_CODE_TAB = "__Main__";
 
     var QBCompiler = null; 
+    var languageModelSession = null;
+
     // if code has been passed on the query string load it into the editor
     var qbcode = "";
     var url = location.href;
@@ -165,6 +167,50 @@ var IDE = new function() {
                 trialTokenElement.httpEquiv = 'origin-trial';
                 trialTokenElement.content = sOriginTrialToken;
                 document.head.appendChild(trialTokenElement);
+            }
+            
+            // Initialize LanguageModel and create session
+            try {
+                if ('LanguageModel' in window) {
+                    console.log('LanguageModel API is available in browser');
+                    const availability = await LanguageModel.availability();
+                    console.log('LanguageModel availability:', availability);
+                    
+                    if (availability === 'ready' || availability === 'available') {
+                        try {
+                            console.log('Attempting to create LanguageModel session...');
+                            languageModelSession = await LanguageModel.create({
+                                initialPrompts: [
+                                    {
+                                        role: 'system',
+                                        content: 'You are a QBasic code assistant. You help users write, improve, and debug QBasic code. You understand QBasic syntax, QBJS-specific features, and can generate complete programs or code snippets. Always provide clean, well-commented QBasic code that follows best practices.'
+                                    }
+                                ],
+                                expectedOutputs: [
+                                    { type: "text", languages: ["en"] }
+                                ]
+                            });
+                            console.log('LanguageModel session created successfully');
+                        } catch (sessionError) {
+                            console.error('Failed to create LanguageModel session:', sessionError);
+                            console.error('Session error details:', sessionError.message, sessionError.name);
+                            languageModelSession = null;
+                        }
+                    } else if (availability === 'downloadable') {
+                        console.log('LanguageModel needs to be downloaded first. User interaction required to start download.');
+                        console.log('The model will be downloaded when the user first tries to use the feature.');
+                    } else if (availability === 'downloading') {
+                        console.log('LanguageModel is currently downloading...');
+                    } else {
+                        console.log('LanguageModel is unavailable on this device. Availability:', availability);
+                    }
+                } else {
+                    console.log('LanguageModel API not supported in this browser');
+                    console.log('Make sure you are using Chrome with the origin trial token enabled');
+                }
+            } catch (error) {
+                console.error('Error initializing LanguageModel:', error);
+                console.error('Error details:', error.message, error.name);
             }
             
             _e.ideTheme.href = "codemirror/themes/" + theme + ".css";
@@ -980,6 +1026,9 @@ var IDE = new function() {
             // Show existing token
             _e.tokenDisplay.style.display = "block";
             _e.tokenInput.style.display = "none";
+            
+            // Check LanguageModel status and show it
+            _checkLanguageModelStatus();
         } else {
             // Show input for new token
             _e.tokenDisplay.style.display = "none";
@@ -988,6 +1037,66 @@ var IDE = new function() {
         }
         
         _showDialog(_e.helpMeWriteDialog);
+    }
+    
+    async function _checkLanguageModelStatus() {
+        try {
+            if ('LanguageModel' in window) {
+                const availability = await LanguageModel.availability();
+                console.log('LanguageModel status check:', availability);
+                
+                // Update the dialog to show status
+                var statusElement = _el("language-model-status");
+                if (!statusElement) {
+                    // Create status element if it doesn't exist
+                    statusElement = document.createElement("div");
+                    statusElement.id = "language-model-status";
+                    statusElement.style.marginTop = "10px";
+                    statusElement.style.padding = "10px";
+                    statusElement.style.backgroundColor = "#f0f0f0";
+                    statusElement.style.borderRadius = "5px";
+                    statusElement.style.fontSize = "12px";
+                    _e.tokenDisplay.appendChild(statusElement);
+                }
+                
+                console.log('Status check - availability value:', availability, 'type:', typeof availability);
+                
+                if (availability === 'ready' || availability === 'available') {
+                    statusElement.innerHTML = "✅ LanguageModel is ready to use";
+                    statusElement.style.backgroundColor = "#d4edda";
+                    statusElement.style.color = "#155724";
+                } else if (availability === 'downloadable') {
+                    statusElement.innerHTML = "⏳ LanguageModel needs to be downloaded. Click 'Submit Prompt' to start download.";
+                    statusElement.style.backgroundColor = "#fff3cd";
+                    statusElement.style.color = "#856404";
+                } else if (availability === 'downloading') {
+                    statusElement.innerHTML = "⬇️ LanguageModel is downloading... Please wait.";
+                    statusElement.style.backgroundColor = "#d1ecf1";
+                    statusElement.style.color = "#0c5460";
+                } else {
+                    statusElement.innerHTML = "❌ LanguageModel is unavailable. Check system requirements.";
+                    statusElement.style.backgroundColor = "#f8d7da";
+                    statusElement.style.color = "#721c24";
+                }
+            } else {
+                console.log('LanguageModel API not available');
+                var statusElement = _el("language-model-status");
+                if (!statusElement) {
+                    statusElement = document.createElement("div");
+                    statusElement.id = "language-model-status";
+                    statusElement.style.marginTop = "10px";
+                    statusElement.style.padding = "10px";
+                    statusElement.style.backgroundColor = "#f8d7da";
+                    statusElement.style.color = "#721c24";
+                    statusElement.style.borderRadius = "5px";
+                    statusElement.style.fontSize = "12px";
+                    _e.tokenDisplay.appendChild(statusElement);
+                }
+                statusElement.innerHTML = "❌ LanguageModel API not supported. Use Chrome with origin trial token.";
+            }
+        } catch (error) {
+            console.error('Error checking LanguageModel status:', error);
+        }
     }
 
     function displayTypes() {
@@ -1673,7 +1782,7 @@ var IDE = new function() {
         _helpMeWriteCode();
     }
 
-    function _submitPrompt() {
+    async function _submitPrompt() {
         var promptText = _e.promptTextarea.value.trim();
         
         if (promptText === "") {
@@ -1681,27 +1790,253 @@ var IDE = new function() {
             return;
         }
         
+        // Check if LanguageModel session is available, retry if needed
+        if (!languageModelSession) {
+            console.log('No LanguageModel session found, attempting to create one...');
+            var retrySuccess = await _retryLanguageModelSession();
+            if (!retrySuccess) {
+                // Check what the actual issue is
+                try {
+                    if ('LanguageModel' in window) {
+                        const availability = await LanguageModel.availability();
+                        if (availability === 'downloadable') {
+                            alert("LanguageModel needs to be downloaded first. Please try again in a moment after the download completes.");
+                        } else if (availability === 'downloading') {
+                            alert("LanguageModel is currently downloading. Please wait for the download to complete and try again.");
+                        } else if (availability === 'unavailable') {
+                            alert("LanguageModel is not available on this device. Please check your system requirements and origin trial token.");
+                        } else {
+                            alert("LanguageModel is not available. Please check your origin trial token and try again. Availability: " + availability);
+                        }
+                    } else {
+                        alert("LanguageModel API is not supported in this browser. Please use Chrome with the origin trial token enabled.");
+                    }
+                } catch (error) {
+                    console.error('Error checking availability:', error);
+                    alert("LanguageModel is not available. Please check your origin trial token and try again.");
+                }
+                _resetPromptDialog();
+                return;
+            }
+        }
+        
         // Disable textarea and button
         _e.promptTextarea.disabled = true;
         _e.submitPromptBtn.disabled = true;
-        _e.submitPromptBtn.textContent = "Processing...";
+        _e.submitPromptBtn.textContent = "Generating...";
         
-        // After 2 seconds, append comment to editor and re-enable controls
-        setTimeout(function() {
+        try {
+            // Get current editor code as context
             var currentCode = codeTabMap[activeCodeTab].editor.getValue();
-            var comment = "\n' " + promptText + "\n";
-            codeTabMap[activeCodeTab].editor.setValue(currentCode + comment);
             
-            // Re-enable controls
-            _e.promptTextarea.disabled = false;
-            _e.submitPromptBtn.disabled = false;
-            _e.submitPromptBtn.textContent = "Submit Prompt";
-            _e.promptTextarea.value = "";
+            // Create combined prompt with user input and existing code
+            var combinedPrompt = `User request: ${promptText}\n\nCurrent code:\n${currentCode}\n\nPlease analyze the existing code and the user's request, then generate improved QBasic code that addresses the user's needs.`;
             
-            // Close dialog and focus editor
-            _closeDialog();
-            codeTabMap[activeCodeTab].editor.focus();
-        }, 2000);
+            // Define JSON Schema for structured output
+            var responseSchema = {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "description": "The complete QBasic code solution"
+                    },
+                    "description": {
+                        "type": "string", 
+                        "description": "Brief explanation of what the code does"
+                    }
+                },
+                "required": ["code", "description"]
+            };
+            
+            // Show preview area and hide prompt area
+            _e.promptTextarea.style.display = "none";
+            var previewSection = _el("code-preview-section");
+            var previewArea = _el("code-preview");
+            var insertBtn = _el("insert-code-btn");
+            var cancelBtn = _el("cancel-code-btn");
+            
+            previewSection.style.display = "block";
+            previewArea.value = "Generating code...";
+            insertBtn.style.display = "inline-block";
+            cancelBtn.style.display = "inline-block";
+            
+            // Generate code using LanguageModel with JSON Schema
+            var generatedResponse = "";
+            var timeoutId = setTimeout(function() {
+                alert("Code generation is taking longer than expected. This might be due to model download or processing time.");
+            }, 30000); // 30 second timeout
+            
+            try {
+                const stream = await languageModelSession.promptStreaming(combinedPrompt, {
+                    responseConstraint: responseSchema
+                });
+                
+                for await (const chunk of stream) {
+                    generatedResponse += chunk;
+                    previewArea.value = "Generating structured response...\n" + generatedResponse;
+                    // Scroll to bottom
+                    previewArea.scrollTop = previewArea.scrollHeight;
+                }
+                
+                clearTimeout(timeoutId);
+                
+                // Check if we got any meaningful output
+                if (generatedResponse.trim() === "") {
+                    throw new Error("No response was generated. Please try a different prompt.");
+                }
+                
+                // Parse the JSON response
+                var parsedResponse;
+                try {
+                    parsedResponse = JSON.parse(generatedResponse);
+                } catch (parseError) {
+                    console.error('Failed to parse JSON response:', parseError);
+                    console.log('Raw response:', generatedResponse);
+                    throw new Error("Failed to parse AI response. The response may not be in the expected JSON format.");
+                }
+                
+                // Extract code and description
+                var generatedCode = parsedResponse.code || "";
+                var description = parsedResponse.description || "";
+                
+                if (!generatedCode.trim()) {
+                    throw new Error("No code was generated in the response. Please try a different prompt.");
+                }
+                
+                // Display the code with description
+                var displayText = "Generated Code:\n" + "=".repeat(50) + "\n\n";
+                displayText += generatedCode + "\n\n";
+                if (description.trim()) {
+                    displayText += "Description:\n" + "=".repeat(50) + "\n\n";
+                    displayText += description;
+                }
+                
+                previewArea.value = displayText;
+                
+                // Store the parsed code for insertion
+                previewArea.dataset.generatedCode = generatedCode;
+                
+                // Enable insert button
+                insertBtn.disabled = false;
+                
+            } catch (streamError) {
+                clearTimeout(timeoutId);
+                throw streamError;
+            }
+            
+        } catch (error) {
+            console.error('Error generating code:', error);
+            alert("Error generating code: " + error.message);
+            _resetPromptDialog();
+        }
+    }
+    
+    function _resetPromptDialog() {
+        // Re-enable controls
+        _e.promptTextarea.disabled = false;
+        _e.submitPromptBtn.disabled = false;
+        _e.submitPromptBtn.textContent = "Submit Prompt";
+        _e.promptTextarea.value = "";
+        
+        // Hide preview area and show prompt area
+        var previewSection = _el("code-preview-section");
+        var previewArea = _el("code-preview");
+        var insertBtn = _el("insert-code-btn");
+        var cancelBtn = _el("cancel-code-btn");
+        
+        if (previewSection) previewSection.style.display = "none";
+        if (previewArea) {
+            previewArea.value = "";
+            delete previewArea.dataset.generatedCode;
+        }
+        if (insertBtn) insertBtn.style.display = "none";
+        if (cancelBtn) cancelBtn.style.display = "none";
+        
+        _e.promptTextarea.style.display = "block";
+        
+        // Close dialog and focus editor
+        _closeDialog();
+        codeTabMap[activeCodeTab].editor.focus();
+    }
+    
+    function _insertGeneratedCode() {
+        var previewArea = _el("code-preview");
+        if (previewArea && previewArea.dataset.generatedCode) {
+            // Insert only the generated code, not the display text with description
+            codeTabMap[activeCodeTab].editor.setValue(previewArea.dataset.generatedCode);
+            _resetPromptDialog();
+        } else if (previewArea && previewArea.value.trim() !== "") {
+            // Fallback to full text if no stored code
+            codeTabMap[activeCodeTab].editor.setValue(previewArea.value);
+            _resetPromptDialog();
+        }
+    }
+    
+    function _cancelCodeGeneration() {
+        _resetPromptDialog();
+    }
+    
+    async function _retryLanguageModelSession() {
+        try {
+            if ('LanguageModel' in window) {
+                const availability = await LanguageModel.availability();
+                console.log('Retry - LanguageModel availability:', availability);
+                
+                if ((availability === 'ready' || availability === 'available') && !languageModelSession) {
+                    try {
+                        languageModelSession = await LanguageModel.create({
+                            initialPrompts: [
+                                {
+                                    role: 'system',
+                                    content: 'You are a QBasic code assistant. You help users write, improve, and debug QBasic code. You understand QBasic syntax, QBJS-specific features, and can generate complete programs or code snippets. Always provide clean, well-commented QBasic code that follows best practices.'
+                                }
+                            ],
+                            expectedOutputs: [
+                                { type: "text", languages: ["en"] }
+                            ]
+                        });
+                        console.log('LanguageModel session created on retry');
+                        return true;
+                    } catch (createError) {
+                        console.error('Failed to create session on retry:', createError);
+                        return false;
+                    }
+                } else if (availability === 'downloadable') {
+                    console.log('Model needs to be downloaded. Attempting to trigger download...');
+                    try {
+                        // Try to create session to trigger download
+                        languageModelSession = await LanguageModel.create({
+                            initialPrompts: [
+                                {
+                                    role: 'system',
+                                    content: 'You are a QBasic code assistant.'
+                                }
+                            ],
+                            expectedOutputs: [
+                                { type: "text", languages: ["en"] }
+                            ]
+                        });
+                        console.log('LanguageModel session created and download triggered');
+                        return true;
+                    } catch (downloadError) {
+                        console.error('Failed to trigger download:', downloadError);
+                        return false;
+                    }
+                } else if (availability === 'downloading') {
+                    console.log('Model is currently downloading, please wait...');
+                    return false;
+                } else {
+                    console.log('LanguageModel is unavailable. Availability:', availability);
+                    return false;
+                }
+            } else {
+                console.log('LanguageModel API not available in browser');
+                return false;
+            }
+        } catch (error) {
+            console.error('Failed to retry LanguageModel session creation:', error);
+            return false;
+        }
     }
 
     this.mode = function() { return appMode; }
@@ -1744,4 +2079,6 @@ var IDE = new function() {
     this.saveOriginTrialToken = _saveOriginTrialToken;
     this.clearOriginTrialToken = _clearOriginTrialToken;
     this.submitPrompt = _submitPrompt;
+    this.insertGeneratedCode = _insertGeneratedCode;
+    this.cancelCodeGeneration = _cancelCodeGeneration;
 };
