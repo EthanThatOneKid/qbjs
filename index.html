@@ -227,24 +227,24 @@
                         <a href="https://developer.chrome.com/blog/prompt-multimodal-origin-trial?hl=en" target="_blank" style="color: #0066cc;">Chrome Developer documentation</a>
                     </p>
                     <div id="token-display" style="display: none;">
-                        <p>Your origin trial token is set.<button onclick="IDE.clearOriginTrialToken()" style="margin-top: 5px; margin-left: 10px;">Clear Token</button></p>
+                        <p>Your origin trial token is set.<a href="javascript:IDE.clearOriginTrialToken()" style="margin-top: 5px; margin-left: 10px; display: inline-block; padding: 2px 8px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; text-decoration: none; color: #333;">Clear Token</a></p>
                         <textarea id="prompt-textarea" placeholder="Enter your prompt here..." style="width: 100%; height: 80px; padding: 5px; margin: 5px 0; resize: vertical;"></textarea>
-                        <button id="submit-prompt-btn" onclick="IDE.submitPrompt()" style="margin-top: 5px;">Submit Prompt</button>
+                        <a href="javascript:IDE.submitPrompt()" id="submit-prompt-btn" style="margin-top: 5px; display: inline-block; padding: 6px 12px; background: #007bff; color: white; border: none; border-radius: 3px; text-decoration: none;">Submit Prompt</a>
                         
                         <!-- Code preview area (initially hidden) -->
                         <div id="code-preview-section" style="display: none; margin-top: 15px;">
                             <h4>Generated Code Preview:</h4>
                             <textarea id="code-preview" placeholder="Generated code will appear here..." style="width: 100%; height: 200px; padding: 5px; margin: 5px 0; resize: vertical; font-family: monospace;" readonly></textarea>
                             <div style="margin-top: 10px;">
-                                <button id="insert-code-btn" onclick="IDE.insertGeneratedCode()" style="margin-right: 10px; display: none;">Insert Code</button>
-                                <button id="cancel-code-btn" onclick="IDE.cancelCodeGeneration()" style="display: none;">Cancel</button>
+                                <a href="javascript:IDE.insertGeneratedCode()" id="insert-code-btn" style="margin-right: 10px; display: none; padding: 6px 12px; background: #28a745; color: white; border: none; border-radius: 3px; text-decoration: none;">Insert Code</a>
+                                <a href="javascript:IDE.cancelCodeGeneration()" id="cancel-code-btn" style="display: none; padding: 6px 12px; background: #6c757d; color: white; border: none; border-radius: 3px; text-decoration: none;">Cancel</a>
                             </div>
                         </div>
                     </div>
                     <div id="token-input" style="display: none;">
                         <p>Enter your origin trial token:</p>
                         <input type="text" id="origin-trial-token-input" placeholder="Enter your origin trial token" style="width: 100%; padding: 5px; margin: 5px 0;">
-                        <button onclick="IDE.saveOriginTrialToken()" style="margin-top: 5px;">Save Token</button>
+                        <a href="javascript:IDE.saveOriginTrialToken()" style="margin-top: 5px; display: inline-block; padding: 6px 12px; background: #007bff; color: white; border: none; border-radius: 3px; text-decoration: none;">Save Token</a>
                     </div>
                 </div>
                 

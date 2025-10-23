@@ -1822,7 +1822,8 @@ var IDE = new function() {
         
         // Disable textarea and button
         _e.promptTextarea.disabled = true;
-        _e.submitPromptBtn.disabled = true;
+        _e.submitPromptBtn.style.pointerEvents = "none";
+        _e.submitPromptBtn.style.opacity = "0.6";
         _e.submitPromptBtn.textContent = "Generating...";
         
         try {
@@ -1917,7 +1918,8 @@ var IDE = new function() {
                 previewArea.dataset.generatedCode = generatedCode;
                 
                 // Enable insert button
-                insertBtn.disabled = false;
+                insertBtn.style.pointerEvents = "auto";
+                insertBtn.style.opacity = "1";
                 
             } catch (streamError) {
                 clearTimeout(timeoutId);
@@ -1934,7 +1936,8 @@ var IDE = new function() {
     function _resetPromptDialog() {
         // Re-enable controls
         _e.promptTextarea.disabled = false;
-        _e.submitPromptBtn.disabled = false;
+        _e.submitPromptBtn.style.pointerEvents = "auto";
+        _e.submitPromptBtn.style.opacity = "1";
         _e.submitPromptBtn.textContent = "Submit Prompt";
         _e.promptTextarea.value = "";
         
